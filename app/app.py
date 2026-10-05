@@ -15,7 +15,7 @@ def home():
         </head>
         <body>
             <h1>Hello from AWS Cloud-Native DevOps!</h1>
-            <p><strong>Version:</strong> 1.2</p>
+            <p><strong>Version:</strong> 1.4</p>
             <p><strong>Environment:</strong> Production</p>
             <p><strong>Hostname:</strong> {hostname}</p>
         </body>
