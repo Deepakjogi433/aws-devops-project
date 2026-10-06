@@ -22,23 +22,19 @@ pipeline {
             }
         }
 
-        stage('Docker Build') {
+        stage('Deploy to App EC2') {
             steps {
-                sh 'docker build -t aws-devops-app:${BUILD_NUMBER} .'
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                sh '''
-                    docker rm -f aws-devops-container || true
-                    docker run -d \
-                        -p 5000:5000 \
-                        --name aws-devops-container \
-                        aws-devops-app:${BUILD_NUMBER}
-                '''
+                sshagent(['app-ec2-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no \
+                            ec2-user@13.201.61.73 \
+                            "cd ~/aws-devops-project && git pull && docker build -t aws-devops-app:${BUILD_NUMBER} . && docker rm -f aws-devops-container || true && docker run -d -p 5000:5000 --name aws-devops-container aws-devops-app:${BUILD_NUMBER}"
+                    '''
+                }
             }
         }
 
     }
 }
+
+
