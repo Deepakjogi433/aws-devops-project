@@ -27,7 +27,7 @@ pipeline {
                 sshagent(['app-ec2-ssh']) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no \
-                            ec2-user@13.127.76.124 \
+                            ec2-user@${APP_EC2_HOST} \
                             "cd ~/aws-devops-project && git pull && docker build -t aws-devops-app:${BUILD_NUMBER} . && docker rm -f aws-devops-container || true && docker run -d -p 5000:5000 --name aws-devops-container aws-devops-app:${BUILD_NUMBER}"
                     '''
                 }
