@@ -1,8 +1,12 @@
+
 pipeline {
     agent any
 
-    stages {
+    environment {
+        DOCKER_IMAGE = 'deepakjogi433/aws-devops-app'
+    }
 
+    stages {
         stage('Checkout') {
             steps {
                 git branch: 'main',
@@ -14,7 +18,7 @@ pipeline {
             steps {
                 sh '''
                     python3 -m venv venv
-                    source venv/bin/activate
+                    . venv/bin/activate
                     pip install -r app/requirements.txt
                     pip install pytest
                     python -m pytest
@@ -22,19 +26,47 @@ pipeline {
             }
         }
 
-        stage('Deploy to App EC2') {
+        stage('Build Docker Image') {
             steps {
-                sshagent(['app-ec2-ssh']) {
+                sh 'docker build -t $DOCKER_IMAGE:$BUILD_NUMBER -t $DOCKER_IMAGE:latest .'
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_TOKEN'
+                )]) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no \
-                            ec2-user@${APP_EC2_HOST} \
-                            "cd ~/aws-devops-project && git pull && docker build -t aws-devops-app:${BUILD_NUMBER} . && docker rm -f aws-devops-container || true && docker run -d -p 5000:5000 --name aws-devops-container aws-devops-app:${BUILD_NUMBER}"
+                        echo "$DOCKER_TOKEN" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push $DOCKER_IMAGE:$BUILD_NUMBER
+                        docker push $DOCKER_IMAGE:latest
+                        docker logout
                     '''
                 }
             }
         }
 
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                    kubectl set image deployment/aws-devops-app \
+                      aws-devops-app=$DOCKER_IMAGE:$BUILD_NUMBER
+                    kubectl rollout status deployment/aws-devops-app --timeout=120s
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                    kubectl get deployment aws-devops-app
+                    kubectl get pods -l app=aws-devops-app
+                    kubectl get service aws-devops-service
+                '''
+            }
+        }
     }
 }
-
-
